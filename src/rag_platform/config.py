@@ -36,6 +36,9 @@ class LLMConfig(BaseModel):
 class VectorStoreConfig(BaseModel):
     backend: str
     collection: str
+    url: str | None = None
+    api_key: str | None = None
+    dsn: str | None = None
 
 
 class RetrievalConfig(BaseModel):
