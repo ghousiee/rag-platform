@@ -1,0 +1,3 @@
+{"question": "What does the sample markdown file mention about retrieval?", "expected_keywords": ["RAG", "retrieval", "markdown"]}
+{"question": "What is the plain text fixture used for?", "expected_keywords": ["plain", "text", "directory", "loading"]}
+{"question": "What kind of file is used for loader tests?", "reference_answer": "A sample markdown file for loader tests that mentions RAG retrieval."}
