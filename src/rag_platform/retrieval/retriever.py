@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from rank_bm25 import BM25Okapi
 
 from rag_platform.config import RetrievalConfig, Settings
@@ -7,6 +9,8 @@ from rag_platform.providers.base import EmbeddingProvider
 from rag_platform.retrieval.hybrid import fuse_dense_and_bm25
 from rag_platform.retrieval.rerank import rerank_hits
 from rag_platform.stores.base import SearchHit, VectorStore
+
+logger = logging.getLogger(__name__)
 
 
 def _tokenize(text: str) -> list[str]:
@@ -34,6 +38,12 @@ class Retriever:
         metadatas: list[dict],
         ids: list[str],
     ) -> None:
+        n_text, n_meta, n_ids = len(texts), len(metadatas), len(ids)
+        if not (n_text == n_meta == n_ids):
+            raise ValueError(
+                f"texts, metadatas, and ids must have the same length "
+                f"(got {n_text}, {n_meta}, {n_ids})"
+            )
         self._corpus_ids = list(ids)
         self._corpus_texts = list(texts)
         self._corpus_metas = list(metadatas)
@@ -72,7 +82,14 @@ class Retriever:
         vector = self._embedder.embed_query(query)
         dense_hits = self._store.similarity_search(vector, k=limit, filters=filters)
 
-        if self._config.hybrid and self._bm25 is not None:
+        # v1: BM25 has no metadata filter support; with non-empty filters, dense only.
+        use_hybrid = self._config.hybrid and not filters
+        if self._config.hybrid and self._bm25 is None:
+            logger.info(
+                "hybrid retrieval enabled but BM25 corpus not built; using dense only"
+            )
+
+        if use_hybrid and self._bm25 is not None:
             bm25_hits = self._bm25_search(query, limit)
             hits = fuse_dense_and_bm25(
                 dense_hits, bm25_hits, self._config.bm25_weight, limit

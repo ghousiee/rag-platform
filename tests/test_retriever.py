@@ -96,6 +96,39 @@ def test_retrieve_respects_custom_k():
     assert store.last_k == 1
 
 
+def test_rebuild_bm25_raises_on_length_mismatch():
+    retriever = _make_retriever(_retrieval_cfg(), FakeStore())
+    with pytest.raises(ValueError, match="same length"):
+        retriever.rebuild_bm25(
+            texts=["a", "b"],
+            metadatas=[{}],
+            ids=["1", "2"],
+        )
+
+
+def test_retrieve_hybrid_skips_bm25_when_filters_nonempty():
+    """With metadata filters, dense-only even when BM25 corpus exists."""
+    store = FakeStore([SearchHit("d1", "python doc", 0.8, {"source": "a"})])
+    retriever = _make_retriever(_retrieval_cfg(hybrid=True), store)
+    retriever.rebuild_bm25(
+        texts=["python tutorial", "noise"],
+        metadatas=[{"source": "a"}, {"source": "b"}],
+        ids=["1", "2"],
+    )
+    hits = retriever.retrieve("python", filters={"source": "a"})
+    assert len(hits) == 1
+    assert hits[0].id == "d1"
+    assert store.last_filters == {"source": "a"}
+
+
+def test_retrieve_hybrid_logs_when_bm25_not_built(caplog: pytest.LogCaptureFixture):
+    store = FakeStore([SearchHit("d1", "x", 1.0, {})])
+    retriever = _make_retriever(_retrieval_cfg(hybrid=True), store)
+    with caplog.at_level(logging.INFO):
+        retriever.retrieve("q")
+    assert any("bm25" in r.message.lower() for r in caplog.records)
+
+
 def test_rerank_missing_flashrank_warns(caplog: pytest.LogCaptureFixture):
     store = FakeStore([SearchHit("1", "doc one", 0.9, {})])
     retriever = _make_retriever(_retrieval_cfg(hybrid=False, rerank=True), store)
