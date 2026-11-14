@@ -5,6 +5,7 @@ from rag_platform.models import Citation, QueryResult
 from rag_platform.providers import build_embedder, build_llm
 from rag_platform.providers.base import EmbeddingProvider, LLMProvider
 from rag_platform.retrieval import Retriever, build_retriever
+from rag_platform.retrieval.bm25_sync import sync_bm25
 from rag_platform.stores import build_store
 from rag_platform.stores.base import SearchHit, VectorStore
 
@@ -17,15 +18,6 @@ def _format_context(hits: list[SearchHit]) -> str:
         source = hit.metadata.get("source", "unknown")
         parts.append(f"[{index}] (source: {source})\n{hit.text}")
     return "\n\n".join(parts)
-
-
-def _sync_bm25_from_store(retriever: Retriever, store: VectorStore) -> None:
-    list_chunks = getattr(store, "list_chunks", None)
-    if list_chunks is None:
-        return
-    ids, texts, metas = list_chunks()
-    if texts:
-        retriever.rebuild_bm25(texts, metas, ids)
 
 
 def query(
@@ -48,7 +40,7 @@ def query(
 
     retriever = retriever or build_retriever(settings, store, embedder)
     if settings.retrieval.hybrid:
-        _sync_bm25_from_store(retriever, store)
+        sync_bm25(retriever, store)
 
     hits = retriever.retrieve(question, k=top_k, filters=filters)
     context = _format_context(hits)

@@ -10,6 +10,7 @@ from rag_platform.models import IngestResult
 from rag_platform.providers import build_embedder
 from rag_platform.providers.base import EmbeddingProvider
 from rag_platform.retrieval import Retriever, build_retriever
+from rag_platform.retrieval.bm25_sync import sync_bm25
 from rag_platform.stores import build_store
 from rag_platform.stores.base import VectorStore
 
@@ -93,6 +94,12 @@ def ingest_path(
 
     if corpus_texts:
         r = retriever or build_retriever(settings, store, embedder)
-        r.rebuild_bm25(corpus_texts, corpus_metas, corpus_ids)
+        sync_bm25(
+            r,
+            store,
+            fallback_ids=corpus_ids,
+            fallback_texts=corpus_texts,
+            fallback_metas=corpus_metas,
+        )
 
     return IngestResult(files=files, chunks=chunks_total, errors=errors)
