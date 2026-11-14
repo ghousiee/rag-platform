@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rag-platform"
+version = "0.1.0"
+description = "Production-grade, copyable RAG template"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "pydantic>=2.6",
+  "pydantic-settings>=2.2",
+  "pyyaml>=6.0",
+  "langchain>=0.3",
+  "langchain-community>=0.3",
+  "langchain-text-splitters>=0.3",
+  "langchain-ollama>=0.2",
+  "langchain-openai>=0.2",
+  "chromadb>=0.5",
+  "rank-bm25>=0.2",
+  "pypdf>=4.0",
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "typer>=0.12",
+  "httpx>=0.27",
+  "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+qdrant = ["qdrant-client>=1.11"]
+pgvector = ["psycopg[binary]>=3.2", "pgvector>=0.3"]
+rerank = ["FlashRank>=0.2"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.24"]
+
+[project.scripts]
+rag = "rag_platform.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rag_platform"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

@@ -1,0 +1,37 @@
+paths:
+  raw: data/raw
+  index: data/indexes
+
+chunking:
+  size: 800
+  overlap: 120
+
+embeddings:
+  provider: ollama          # ollama | openai_compatible
+  model: nomic-embed-text
+  base_url: http://localhost:11434
+
+llm:
+  provider: ollama          # ollama | openai_compatible
+  model: llama3.1
+  temperature: 0.1
+  base_url: http://localhost:11434
+  # api_key via env when openai_compatible
+
+vector_store:
+  backend: chroma           # chroma | qdrant | pgvector
+  collection: rag_docs
+
+retrieval:
+  top_k: 8
+  hybrid: true
+  bm25_weight: 0.3
+  rerank: false
+
+prompts:
+  system: |
+    Answer using only the provided context. Cite sources.
+    If the context is insufficient, say you do not know.
+
+eval:
+  golden_path: evals/golden.jsonl
