@@ -4,6 +4,7 @@ import chromadb
 
 from rag_platform.config import Settings
 from rag_platform.stores.base import SearchHit
+from rag_platform.stores.scoring import cosine_distance_to_similarity
 
 
 class ChromaVectorStore:
@@ -48,7 +49,7 @@ class ChromaVectorStore:
         for row_id, text, meta, dist in zip(
             ids[0], documents[0], metadatas[0], distances[0]
         ):
-            score = 1.0 - float(dist)
+            score = cosine_distance_to_similarity(float(dist))
             hits.append(
                 SearchHit(
                     id=row_id,

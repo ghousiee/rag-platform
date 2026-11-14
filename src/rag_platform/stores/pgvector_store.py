@@ -4,8 +4,7 @@ from typing import Any
 
 from rag_platform.config import VectorStoreConfig
 from rag_platform.stores.base import SearchHit
-
-_TABLE = "rag_vectors"
+from rag_platform.stores.identifiers import sql_index_slug, sql_table_identifier
 
 
 class PgVectorStore:
@@ -14,18 +13,18 @@ class PgVectorStore:
         from pgvector.psycopg import register_vector
 
         self._config = config
+        self._table = sql_table_identifier(config.collection)
+        self._index_slug = sql_index_slug(config.collection)
         self._conn = psycopg.connect(dsn, autocommit=True)
         register_vector(self._conn)
         self._ensure_schema()
 
     def _ensure_schema(self) -> None:
-        import psycopg
-
         with self._conn.cursor() as cur:
             cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
             cur.execute(
                 f"""
-                CREATE TABLE IF NOT EXISTS {_TABLE} (
+                CREATE TABLE IF NOT EXISTS {self._table} (
                     id TEXT PRIMARY KEY,
                     text TEXT NOT NULL,
                     embedding vector,
@@ -35,8 +34,8 @@ class PgVectorStore:
             )
             cur.execute(
                 f"""
-                CREATE INDEX IF NOT EXISTS idx_{_TABLE}_source
-                ON {_TABLE} ((metadata->>'source'))
+                CREATE INDEX IF NOT EXISTS idx_{self._index_slug}_source
+                ON {self._table} ((metadata->>'source'))
                 """
             )
 
@@ -55,7 +54,7 @@ class PgVectorStore:
             ):
                 cur.execute(
                     f"""
-                    INSERT INTO {_TABLE} (id, text, embedding, metadata)
+                    INSERT INTO {self._table} (id, text, embedding, metadata)
                     VALUES (%s, %s, %s, %s::jsonb)
                     ON CONFLICT (id) DO UPDATE SET
                         text = EXCLUDED.text,
@@ -76,7 +75,7 @@ class PgVectorStore:
         sql = f"""
             SELECT id, text, metadata,
                    1 - (embedding <=> %s::vector) AS score
-            FROM {_TABLE}
+            FROM {self._table}
             {where}
             ORDER BY embedding <=> %s::vector
             LIMIT %s
@@ -97,13 +96,13 @@ class PgVectorStore:
     def delete_by_source(self, source: str) -> None:
         with self._conn.cursor() as cur:
             cur.execute(
-                f"DELETE FROM {_TABLE} WHERE metadata->>'source' = %s",
+                f"DELETE FROM {self._table} WHERE metadata->>'source' = %s",
                 (source,),
             )
 
     def count(self) -> int:
         with self._conn.cursor() as cur:
-            cur.execute(f"SELECT COUNT(*) FROM {_TABLE}")
+            cur.execute(f"SELECT COUNT(*) FROM {self._table}")
             row = cur.fetchone()
         return int(row[0]) if row else 0
 
@@ -114,6 +113,6 @@ def _build_where(filters: dict | None) -> tuple[str, list[Any]]:
     clauses: list[str] = []
     params: list[Any] = []
     for key, value in filters.items():
-        clauses.append(f"metadata->>%s = %s")
+        clauses.append("metadata->>%s = %s")
         params.extend([key, str(value)])
     return "WHERE " + " AND ".join(clauses), params

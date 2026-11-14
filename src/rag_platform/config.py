@@ -39,6 +39,7 @@ class VectorStoreConfig(BaseModel):
     url: str | None = None
     api_key: str | None = None
     dsn: str | None = None
+    vector_size: int | None = None
 
 
 class RetrievalConfig(BaseModel):

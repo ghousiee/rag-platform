@@ -24,6 +24,7 @@ vector_store:
   # url: http://localhost:6333       # qdrant
   # api_key: null                    # qdrant optional
   # dsn: postgresql://localhost/rag   # pgvector
+  # vector_size: 768                 # qdrant optional; else inferred on first upsert
 
 retrieval:
   top_k: 8

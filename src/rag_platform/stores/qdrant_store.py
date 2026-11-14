@@ -4,34 +4,34 @@ from typing import TYPE_CHECKING, Any
 
 from rag_platform.config import VectorStoreConfig
 from rag_platform.stores.base import SearchHit
+from rag_platform.stores.scoring import qdrant_cosine_similarity
 
 if TYPE_CHECKING:
     from qdrant_client import QdrantClient
-    from qdrant_client.models import Distance, PointStruct, VectorParams
-
-
-def _distance_to_score(distance: float) -> float:
-    return 1.0 / (1.0 + max(distance, 0.0))
+    from qdrant_client.models import PointStruct
 
 
 class QdrantVectorStore:
     def __init__(self, config: VectorStoreConfig, client: QdrantClient) -> None:
         self._config = config
         self._client = client
-        self._ensure_collection()
+        self._collection_ready = False
 
-    def _ensure_collection(self) -> None:
+    def _ensure_collection(self, vector_dim: int) -> None:
+        if self._collection_ready:
+            return
         from qdrant_client.models import Distance, VectorParams
 
         name = self._config.collection
         collections = {c.name for c in self._client.get_collections().collections}
-        if name in collections:
-            return
-        dim = 384
-        self._client.create_collection(
-            collection_name=name,
-            vectors_config=VectorParams(size=dim, distance=Distance.COSINE),
-        )
+        if name not in collections:
+            # Prefer configured size; otherwise infer from first upsert batch.
+            dim = self._config.vector_size or vector_dim
+            self._client.create_collection(
+                collection_name=name,
+                vectors_config=VectorParams(size=dim, distance=Distance.COSINE),
+            )
+        self._collection_ready = True
 
     def upsert(
         self,
@@ -41,6 +41,9 @@ class QdrantVectorStore:
         metadatas: list[dict],
     ) -> None:
         from qdrant_client.models import PointStruct
+
+        if embeddings:
+            self._ensure_collection(len(embeddings[0]))
 
         points: list[PointStruct] = []
         for point_id, text, vector, meta in zip(ids, texts, embeddings, metadatas):
@@ -71,7 +74,7 @@ class QdrantVectorStore:
                 SearchHit(
                     id=str(point.id),
                     text=text,
-                    score=_distance_to_score(float(point.score)),
+                    score=qdrant_cosine_similarity(float(point.score)),
                     metadata=dict(payload),
                 )
             )
