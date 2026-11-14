@@ -65,3 +65,13 @@ class ChromaVectorStore:
 
     def count(self) -> int:
         return self._collection.count()
+
+    def list_chunks(self) -> tuple[list[str], list[str], list[dict]]:
+        """Return all indexed ids, texts, and metadatas (for BM25 rebuild)."""
+        data = self._collection.get(include=["documents", "metadatas"])
+        ids = data.get("ids") or []
+        documents = data.get("documents") or []
+        metadatas = data.get("metadatas") or []
+        texts = [doc or "" for doc in documents]
+        metas = [dict(meta) if meta is not None else {} for meta in metadatas]
+        return ids, texts, metas
