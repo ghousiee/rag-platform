@@ -4,6 +4,7 @@ import chromadb
 
 from rag_platform.config import Settings
 from rag_platform.stores.base import SearchHit
+from rag_platform.stores.identifiers import normalize_filters
 from rag_platform.stores.scoring import cosine_distance_to_similarity
 
 
@@ -38,7 +39,7 @@ class ChromaVectorStore:
         result = self._collection.query(
             query_embeddings=[vector],
             n_results=k,
-            where=filters,
+            where=normalize_filters(filters),
             include=["documents", "metadatas", "distances"],
         )
         ids = result.get("ids") or [[]]

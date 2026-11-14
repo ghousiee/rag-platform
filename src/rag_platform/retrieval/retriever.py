@@ -9,6 +9,7 @@ from rag_platform.providers.base import EmbeddingProvider
 from rag_platform.retrieval.hybrid import fuse_dense_and_bm25
 from rag_platform.retrieval.rerank import rerank_hits
 from rag_platform.stores.base import SearchHit, VectorStore
+from rag_platform.stores.identifiers import normalize_filters
 
 logger = logging.getLogger(__name__)
 
@@ -80,10 +81,13 @@ class Retriever:
     ) -> list[SearchHit]:
         limit = k if k is not None else self._config.top_k
         vector = self._embedder.embed_query(query)
-        dense_hits = self._store.similarity_search(vector, k=limit, filters=filters)
+        normalized_filters = normalize_filters(filters)
+        dense_hits = self._store.similarity_search(
+            vector, k=limit, filters=normalized_filters
+        )
 
         # v1: BM25 has no metadata filter support; with non-empty filters, dense only.
-        use_hybrid = self._config.hybrid and not filters
+        use_hybrid = self._config.hybrid and not normalized_filters
         if self._config.hybrid and self._bm25 is None:
             logger.info(
                 "hybrid retrieval enabled but BM25 corpus not built; using dense only"

@@ -11,6 +11,7 @@ from rag_platform.config import load_settings
 from rag_platform.eval import run_eval, write_report
 from rag_platform.generation import query as run_query
 from rag_platform.ingest import ingest_path
+from rag_platform.models import EmptyIndexError
 
 app = typer.Typer(help="RAG platform CLI")
 
@@ -22,7 +23,11 @@ def ingest(
 ) -> None:
     settings = load_settings(config)
     target = path if path is not None else settings.paths.raw
-    result = ingest_path(target, settings)
+    try:
+        result = ingest_path(target, settings)
+    except (ConnectionError, OSError) as exc:
+        typer.echo(f"Connection error: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
     typer.echo(f"Ingest complete: files={result.files}, chunks={result.chunks}")
     for err in result.errors:
         typer.echo(err, err=True)
@@ -37,8 +42,22 @@ def query(
     top_k: Annotated[int | None, typer.Option("--top-k", help="Override retrieval top_k")] = None,
 ) -> None:
     settings = load_settings(config)
-    result = run_query(question, settings, top_k=top_k)
+    try:
+        result = run_query(question, settings, top_k=top_k)
+    except EmptyIndexError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    except (ConnectionError, OSError) as exc:
+        typer.echo(f"Connection error: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
     typer.echo(result.answer)
+    for citation in result.citations:
+        preview = citation.text.replace("\n", " ")
+        if len(preview) > 120:
+            preview = preview[:117] + "..."
+        typer.echo(
+            f"  [{citation.score:.3f}] {citation.source}: {preview}",
+        )
 
 
 @app.command(name="eval")

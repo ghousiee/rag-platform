@@ -51,6 +51,19 @@ def make_settings(tmp_path: Path, *, index: Path | None = None) -> Settings:
     return load_settings(cfg)
 
 
+def test_chroma_empty_filters_dict_treated_as_none(tmp_path: Path):
+    settings = make_settings(tmp_path, index=tmp_path / "idx")
+    store = build_store(settings)
+    store.upsert(
+        ids=["1"],
+        texts=["hello world"],
+        embeddings=[[0.1, 0.2, 0.3]],
+        metadatas=[{"source": "a.txt"}],
+    )
+    hits = store.similarity_search([0.1, 0.2, 0.3], k=1, filters={})
+    assert len(hits) == 1
+
+
 def test_chroma_upsert_and_search(tmp_path: Path):
     settings = make_settings(tmp_path, index=tmp_path / "idx")
     store = build_store(settings)

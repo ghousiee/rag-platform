@@ -68,7 +68,6 @@ def ingest_path(
             if not chunks:
                 continue
             source = str(chunks[0].metadata.get("source", file_path.resolve()))
-            store.delete_by_source(source)
             ids = [
                 _chunk_id(
                     source,
@@ -79,6 +78,7 @@ def ingest_path(
             texts = [chunk.text for chunk in chunks]
             metas = [chunk.metadata for chunk in chunks]
             vectors = embedder.embed_documents(texts)
+            store.delete_by_source(source)
             store.upsert(ids, texts, vectors, metas)
             files += 1
             chunks_total += len(chunks)

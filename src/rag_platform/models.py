@@ -23,3 +23,7 @@ class IngestResult(BaseModel):
     files: int
     chunks: int
     errors: list[str]
+
+
+class EmptyIndexError(Exception):
+    """Raised when the vector index has no documents indexed yet."""

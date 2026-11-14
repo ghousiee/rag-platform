@@ -8,7 +8,7 @@ from typer.testing import CliRunner
 
 from rag_platform.cli import app
 from rag_platform.eval import EvalReport
-from rag_platform.models import IngestResult, QueryResult
+from rag_platform.models import EmptyIndexError, IngestResult, QueryResult
 
 
 def _minimal_config_yaml(*, raw: str = "data/raw", index: str = "data/indexes") -> str:
@@ -96,6 +96,48 @@ def test_ingest_custom_path(runner: CliRunner, config_file: Path, monkeypatch: p
     )
     assert result.exit_code == 0, result.output
     assert seen == [custom]
+
+
+def test_query_prints_citations(runner: CliRunner, config_file: Path, monkeypatch: pytest.MonkeyPatch):
+    from rag_platform.models import Citation
+
+    def fake_query(question: str, settings, *, top_k=None, **kwargs):
+        return QueryResult(
+            answer="done",
+            citations=[
+                Citation(source="doc.txt", score=0.9, text="snippet text"),
+            ],
+        )
+
+    monkeypatch.setattr("rag_platform.cli.run_query", fake_query)
+    monkeypatch.setattr(
+        "rag_platform.cli.load_settings",
+        lambda p=None: __import__(
+            "rag_platform.config", fromlist=["load_settings"]
+        ).load_settings(config_file),
+    )
+
+    result = runner.invoke(app, ["query", "hi?", "--config", str(config_file)])
+    assert result.exit_code == 0, result.output
+    assert "done" in result.output
+    assert "doc.txt" in result.output
+
+
+def test_query_empty_index_exit_1(runner: CliRunner, config_file: Path, monkeypatch: pytest.MonkeyPatch):
+    def fake_query(question: str, settings, *, top_k=None, **kwargs):
+        raise EmptyIndexError("Index is empty. Run ingest first.")
+
+    monkeypatch.setattr("rag_platform.cli.run_query", fake_query)
+    monkeypatch.setattr(
+        "rag_platform.cli.load_settings",
+        lambda p=None: __import__(
+            "rag_platform.config", fromlist=["load_settings"]
+        ).load_settings(config_file),
+    )
+
+    result = runner.invoke(app, ["query", "hi?", "--config", str(config_file)])
+    assert result.exit_code == 1
+    assert "empty" in result.output.lower()
 
 
 def test_query_invokes_pipeline(runner: CliRunner, config_file: Path, monkeypatch: pytest.MonkeyPatch):

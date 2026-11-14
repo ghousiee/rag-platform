@@ -9,15 +9,12 @@ from rag_platform.api.schemas import HealthResponse, IngestRequest, QueryRequest
 from rag_platform.config import Settings, load_settings
 from rag_platform.generation import query as run_query
 from rag_platform.ingest import ingest_path
-from rag_platform.models import IngestResult, QueryResult
+from rag_platform.models import EmptyIndexError, IngestResult, QueryResult
 from rag_platform.providers.base import EmbeddingProvider, LLMProvider
 from rag_platform.stores import build_store
 from rag_platform.stores.base import VectorStore
 
 logger = logging.getLogger(__name__)
-
-_EMPTY_INDEX_MSG = "Index is empty. Run ingest first."
-
 
 def _get_embedder(request: Request) -> EmbeddingProvider | None:
     return getattr(request.app.state, "embedder", None)
@@ -96,10 +93,8 @@ def create_app(
                 store=store,
                 llm=llm,
             )
-        except RuntimeError as exc:
-            if _EMPTY_INDEX_MSG in str(exc) or "empty" in str(exc).lower():
-                raise HTTPException(status_code=409, detail=str(exc)) from exc
-            raise HTTPException(status_code=500, detail=str(exc)) from exc
+        except EmptyIndexError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
         except Exception as exc:
             logger.exception("query failed")
             raise HTTPException(status_code=500, detail=str(exc)) from exc

@@ -1,1 +1,13 @@
+.env
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+data/indexes/*
+!data/indexes/.gitkeep
+evals/report.json
 __pycache__/
+.pytest_cache/
+*.pyc
+.DS_Store

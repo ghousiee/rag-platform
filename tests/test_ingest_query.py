@@ -8,6 +8,7 @@ import pytest
 from rag_platform.config import Settings, load_settings
 from rag_platform.generation import query
 from rag_platform.ingest import ingest_path
+from rag_platform.models import EmptyIndexError
 
 
 class FakeEmbed:
@@ -81,8 +82,37 @@ def test_ingest_then_query(tmp_path: Path, fixtures_dir: Path):
 
 def test_query_empty_index(tmp_path: Path):
     settings = make_chroma_settings(tmp_path)
-    with pytest.raises(RuntimeError, match="Index is empty"):
+    with pytest.raises(EmptyIndexError, match="Index is empty"):
         query("What is RAG?", settings, embedder=FakeEmbed(), llm=FakeLLM())
+
+
+def test_ingest_embeds_before_delete_by_source(
+    tmp_path: Path, fixtures_dir: Path, monkeypatch: pytest.MonkeyPatch
+):
+    settings = make_chroma_settings(tmp_path)
+    raw = tmp_path / "raw"
+    raw.mkdir()
+    shutil.copy(fixtures_dir / "sample.txt", raw / "sample.txt")
+
+    order: list[str] = []
+
+    class TrackingEmbed(FakeEmbed):
+        def embed_documents(self, texts: list[str]) -> list[list[float]]:
+            order.append("embed")
+            return super().embed_documents(texts)
+
+    from rag_platform.stores import build_store
+
+    store = build_store(settings)
+    real_delete = store.delete_by_source
+
+    def tracked_delete(source: str) -> None:
+        order.append("delete")
+        real_delete(source)
+
+    monkeypatch.setattr(store, "delete_by_source", tracked_delete)
+    ingest_path(raw, settings, embedder=TrackingEmbed(), store=store)
+    assert order.index("embed") < order.index("delete")
 
 
 def test_ingest_empty_directory(tmp_path: Path):

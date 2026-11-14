@@ -50,7 +50,7 @@ def test_ingest_and_query_round_trip(tmp_path: Path, fixtures_dir: Path):
 
     query_resp = client.post(
         "/query",
-        json={"question": "What is RAG?", "top_k": 4, "filters": None},
+        json={"question": "What is RAG?", "top_k": 4, "filters": {}},
     )
     assert query_resp.status_code == 200
     qr = query_resp.json()

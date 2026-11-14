@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from dotenv import load_dotenv
 from pydantic import BaseModel
 
 
@@ -121,10 +122,23 @@ def _apply_env_overrides(data: dict[str, Any]) -> dict[str, Any]:
             if section and section.get("provider") == "openai_compatible":
                 section["api_key"] = openai_key
 
+    vs = data.get("vector_store")
+    if isinstance(vs, dict):
+        qdrant_url = os.environ.get("QDRANT_URL")
+        if qdrant_url:
+            vs["url"] = qdrant_url
+        qdrant_key = os.environ.get("QDRANT_API_KEY")
+        if qdrant_key:
+            vs["api_key"] = qdrant_key
+        pg_dsn = os.environ.get("PGVECTOR_DSN") or os.environ.get("DATABASE_URL")
+        if pg_dsn:
+            vs["dsn"] = pg_dsn
+
     return data
 
 
 def load_settings(config_path: Path | None = None) -> Settings:
+    load_dotenv()
     if config_path is None:
         repo_root = _find_repo_root(Path.cwd())
         config_path = repo_root / "configs" / "default.yaml"

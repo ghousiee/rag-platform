@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from rag_platform.config import Settings
-from rag_platform.models import Citation, QueryResult
+from rag_platform.models import Citation, EmptyIndexError, QueryResult
 from rag_platform.providers import build_embedder, build_llm
 from rag_platform.providers.base import EmbeddingProvider, LLMProvider
 from rag_platform.retrieval import Retriever, build_retriever
@@ -36,7 +36,7 @@ def query(
     llm = llm or build_llm(settings)
 
     if store.count() == 0:
-        raise RuntimeError(_EMPTY_INDEX_MSG)
+        raise EmptyIndexError(_EMPTY_INDEX_MSG)
 
     retriever = retriever or build_retriever(settings, store, embedder)
     if settings.retrieval.hybrid:
